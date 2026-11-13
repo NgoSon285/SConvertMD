@@ -1,0 +1,40 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:        # bấm "Run workflow" trên tab Actions
+  push:
+    tags: ["v*"]            # push tag v1.0.0 -> build + tạo Release
+
+permissions:
+  contents: write           # cần để tạo Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build exe
+        run: >
+          uv run --python 3.12
+          --with "markitdown[all]" --with pymupdf --with pytesseract --with pillow
+          --with customtkinter --with pyinstaller
+          pyinstaller --noconfirm --windowed --name SConvertMD
+          --add-data "PROMPT.md:."
+          --collect-all customtkinter --collect-all magika --collect-all markitdown
+          app.py
+
+      - name: Zip
+        run: Compress-Archive -Path dist\SConvertMD -DestinationPath SConvertMD-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SConvertMD-windows
+          path: SConvertMD-windows.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SConvertMD-windows.zip
